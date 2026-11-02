@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>PAE · Dashboard</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b0f14">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PAE">
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: #0b0f14;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      color: #e8f0f8;
+    }
+
+    /* ─── IFRAME (la app real) ─── */
+    #app-frame {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100dvh;
+      border: 0;
+      display: block;
+      background: #0b0f14;
+    }
+
+    /* ─── PANTALLA DE CARGA ─── */
+    #loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      background: #0b0f14;
+      z-index: 10;
+      transition: opacity 0.4s;
+    }
+    #loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .spinner {
+      width: 56px;
+      height: 56px;
+      border: 5px solid #253044;
+      border-top-color: #00e5a0;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loader p { color: #8a9bb8; font-size: 0.9rem; }
+
+    /* ─── FALLBACK si el iframe falla (login Google) ─── */
+    #fallback {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.2rem;
+      padding: 2rem;
+      background: #0b0f14;
+      z-index: 20;
+      text-align: center;
+    }
+    #fallback.show { display: flex; }
+    #fallback h1 { font-size: 1.2rem; color: #00e5a0; }
+    #fallback p { color: #8a9bb8; font-size: 0.9rem; max-width: 340px; line-height: 1.5; }
+    #fallback a {
+      display: inline-block;
+      padding: 0.8rem 1.6rem;
+      background: #00e5a0;
+      color: #021912;
+      text-decoration: none;
+      font-weight: 700;
+      border-radius: 40px;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+    #fallback a:active { opacity: 0.85; }
+
+    /* ─── BOTÓN "Abrir directamente" (aparece a los 12s) ─── */
+    #btnDirecto {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      z-index: 15;
+      padding: 0.7rem 1.4rem;
+      background: rgba(245, 158, 11, 0.95);
+      color: #1c0e00;
+      font-weight: 700;
+      font-size: 0.85rem;
+      border: none;
+      border-radius: 40px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+      cursor: pointer;
+    }
+    #btnDirecto.show { display: block; }
+    #btnDirecto:active { transform: translateX(-50%) scale(0.96); }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- 🔴 REEMPLAZA ESTA URL por la tuya (/exec)                 -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <script>
+    // ⚠️ ÚNICO LUGAR DONDE CAMBIAR LA URL
+    const APP_URL = 'https://script.google.com/macros/s/AKfycbxlViaKA8eaddeTNuj85BnFu-MEPOUKXjwBDO76V2v-ZU0DMaNqC-N-0AXUWeN6POZPAA/exec';
+  </script>
+
+  <!-- Pantalla de carga -->
+  <div id="loader">
+    <div class="spinner"></div>
+    <p>Cargando Dashboard PAE…</p>
+  </div>
+
+  <!-- La app real (dentro de iframe) -->
+  <iframe id="app-frame" allow="clipboard-read; clipboard-write"></iframe>
+
+  <!-- Fallback si el login de Google bloquea el iframe -->
+  <div id="fallback">
+    <h1>⚠️ No se pudo cargar dentro de la app</h1>
+    <p>Esto pasa cuando el script pide iniciar sesión con Google (el login no funciona dentro de un iframe).</p>
+    <a id="linkDirecto" href="#" target="_blank" rel="noopener">🔗 Abrir directamente</a>
+  </div>
+
+  <!-- Botón "Abrir directamente" que aparece tras 12s -->
+  <button id="btnDirecto" onclick="abrirDirecto()">🔗 Abrir directamente</button>
+
+  <script>
+    const iframe   = document.getElementById('app-frame');
+    const loader   = document.getElementById('loader');
+    const fallback = document.getElementById('fallback');
+    const btnDirecto = document.getElementById('btnDirecto');
+    const linkDirecto = document.getElementById('linkDirecto');
+
+    // Setear URLs dinámicamente
+    iframe.src = APP_URL;
+    linkDirecto.href = APP_URL;
+
+    let cargado = false;
+    let timeoutFallback = null;
+    let timeoutMostrarBoton = null;
+
+    // ─── Se dispara cuando el iframe termina de cargar ───
+    iframe.addEventListener('load', () => {
+      cargado = true;
+      clearTimeout(timeoutFallback);
+      clearTimeout(timeoutMostrarBoton);
+      btnDirecto.classList.remove('show');
+      fallback.classList.remove('show');
+
+      // Pequeño delay para asegurar que el paint ocurrió
+      setTimeout(() => {
+        loader.classList.add('hidden');
+      }, 250);
+    });
+
+    // ─── Timeout de seguridad: si a los 12s no cargó, mostrar botón ───
+    timeoutMostrarBoton = setTimeout(() => {
+      if (!cargado) {
+        btnDirecto.classList.add('show');
+      }
+    }, 12000);
+
+    // ─── Timeout de fallback duro: si a los 20s sigue en blanco, mostrar panel ───
+    // (Google login bloqueado suele mostrar pantalla en blanco sin disparar 'load')
+    timeoutFallback = setTimeout(() => {
+      if (!cargado) {
+        loader.classList.add('hidden');
+        fallback.classList.add('show');
+      }
+    }, 20000);
+
+    function abrirDirecto() {
+      window.open(APP_URL, '_blank', 'noopener');
+    }
+
+    // ─── Registrar Service Worker (PWA) ───
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then((reg) => console.log('✅ SW registrado:', reg.scope))
+          .catch((err) => console.warn('⚠️ SW falló:', err));
+      });
+    }
+
+    // ─── Prevenir zoom accidental en iOS al hacer doble tap ───
+    let lastTouch = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouch <= 300) e.preventDefault();
+      lastTouch = now;
+    }, { passive: false });
+  </script>
+</body>
+</html>
