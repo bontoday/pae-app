@@ -1,0 +1,26 @@
+{
+  "name": "Dashboard PAE · Lotes + Kardex + Despachos",
+  "short_name": "PAE",
+  "description": "Gestión de almacén PAE: lotes, kardex, despachos y mapa de almacén.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0f14",
+  "theme_color": "#00e5a0",
+  "lang": "es-PE",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
